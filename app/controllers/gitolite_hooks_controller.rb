@@ -32,10 +32,7 @@ class GitoliteHooksController < ApplicationController
 			GitCache.destroy(old_ids)
 		end
 
-
 		repo_path = GitHosting.repository_path(@project)
-
-
 
 		render :text => Proc.new { |response, output|
 			response.headers["Content-Type"] = "text/plain;"
@@ -97,16 +94,13 @@ class GitoliteHooksController < ApplicationController
 					end
 
 					revisions = %x[#{GitHosting.git_exec} --git-dir='#{GitHosting.repository_path(@project)}.git' rev-list --reverse #{range}]
-					#GitHosting.logger.debug "Revisions: #{revisions.split().join(' ')}"
 
 					revisions.split().each{|rev|
+						next if project.repository.extra.notified_cia.include? rev.strip
 						revision = project.repository.find_changeset_by_name(rev.strip)
-						#GitHosting.logger.debug "Revision Found: #{revision}"
-						next if revision.notified_cia == 1   # Already notified about this commit
-						GitHosting.logger.info "Notifying CIA: Branch => #{branch} RANGE => #{revision.revision}"
+						GitHosting.logger.info "Notifying CIA: Branch => #{branch} Revision => #{revision.revision}"
 						CiaNotificationMailer.deliver_notification(revision, branch)
-						revision.notified_cia = 1
-						revision.save
+						project.repository.extra.notified_cia.push rev.strip
 					}
 				}
 			} if not params[:refs].nil? and @project.repository.extra.notify_cia==1

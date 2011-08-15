@@ -10,6 +10,8 @@ class GitRepositoryExtra < ActiveRecord::Base
 	validates_presence_of :repository_id, :key, :ivector, :git_http, :git_daemon
 	validates_associated :repository
 
+	serialize :notified_cia, Array
+
 	def after_initialize
 		generate if self.repository.nil?
 	end
