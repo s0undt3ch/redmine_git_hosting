@@ -2,8 +2,14 @@ class MoveNotifiedCiaToExtras < ActiveRecord::Migration
 	def self.up
 
 		# Need this migration step for my production environment which is already running this code
-		add_column :git_repository_extras, :notify_cia, :integer, :default => 1
-		add_column :git_repository_extras, :notified_cia, :text, :default => []
+		begin
+			add_column :git_repository_extras, :notify_cia, :integer, :default => 1
+		rescue
+		end
+		begin
+			add_column :git_repository_extras, :notified_cia, :text, :default => []
+		rescue
+		end
 
 		Project.find(:all).each {|project|
 			if project.repository.is_a?(Repository::Git)

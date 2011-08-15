@@ -9,6 +9,7 @@ class CreateGitRepositoryExtras < ActiveRecord::Migration
 			t.column :git_daemon, :integer, :default =>1
 			t.column :git_http, :integer, :default=>1
 			t.column :notify_cia, :integer, :default=>0
+			t.column :notified_cia, :text, :default=>[]
 			# from Hooks Keys table
 			t.column :key, :binary
 			t.column :ivector, :binary
