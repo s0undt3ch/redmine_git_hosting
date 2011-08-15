@@ -39,6 +39,11 @@ Redmine::Plugin.register :redmine_git_hosting do
 		'gitHooksUrl' => ''
 		},
 		:partial => 'redmine_git_hosting'
+		project_module :repository_mirrors do
+			permission :create_repository_mirrors, :repository_mirrors => :create
+			permission :view_repository_mirrors, :repository_mirrors => :index
+			permission :edit_repository_mirrors, :repository_mirrors => :edit
+		end
 end
 
 # initialize hooks
@@ -56,6 +61,8 @@ User.send(:has_many, :gitolite_public_keys, :dependent => :destroy)
 # initialize association from repository -> git hook keys
 Repository.send(:has_one, :hook_key, :class_name => 'GitHookKey', :dependent => :destroy) # remove in next release?
 Repository.send(:has_one, :extra, :class_name => 'GitRepositoryExtra', :dependent => :destroy)
+# initialize association from project -> repository mirrors
+Project.send(:has_many, :repository_mirrors, :dependent => :destroy)
 
 # initialize observer
 ActiveRecord::Base.observers = ActiveRecord::Base.observers << GitHostingObserver

@@ -1,5 +1,6 @@
 require 'lockfile'
 require 'net/ssh'
+require 'tempfile'
 require 'tmpdir'
 
 require 'gitolite_conf.rb'
@@ -34,13 +35,16 @@ module GitHosting
 		return @@web_user
 	end
 
+	def self.git_user
+		Setting.plugin_redmine_git_hosting['gitUser']
+	end
+
 	@@sudo_git_to_web_user_stamp = nil
 	@@sudo_git_to_web_user_cached = nil
 	def self.sudo_git_to_web_user
 		if not @@sudo_git_to_web_user_cached.nil? and (Time.new - @@sudo_git_to_web_user_stamp <= 0.5):
 			return @@sudo_git_to_web_user_cached
 		end
-		git_user = Setting.plugin_redmine_git_hosting['gitUser']
 		logger.info "Testing if git user(\"#{git_user}\") can sudo to web user(\"#{web_user}\")"
 		if git_user == web_user
 			@@sudo_git_to_web_user_cached = true
@@ -65,7 +69,6 @@ module GitHosting
 		if not @@sudo_web_to_git_user_cached.nil? and (Time.new - @@sudo_web_to_git_user_stamp <= 0.5):
 			return @@sudo_web_to_git_user_cached
 		end
-		git_user = Setting.plugin_redmine_git_hosting['gitUser']
 		logger.info "Testing if web user(\"#{web_user}\") can sudo to git user(\"#{git_user}\")"
 		if git_user == web_user
 			@@sudo_web_to_git_user_cached = true
@@ -130,8 +133,18 @@ module GitHosting
 		if !File.directory?(@@git_hosting_tmp_dir)
 			%x[mkdir -p "#{@@git_hosting_tmp_dir}"]
 			%x[chmod 770 "#{@@git_hosting_tmp_dir}"]
+			%x[chown #{web_user}:#{git_user} "#{@@git_hosting_tmp_dir}"]
 		end
 		return @@git_hosting_tmp_dir
+	end
+
+	def self.get_mirror_identities_dir
+		@@mirror_identities_dir = File.join(@@git_hosting_tmp_dir, 'mirror_identities')
+		if !File.directory?(@@mirror_identities_dir)
+			%x[#{git_user_runner} 'mkdir -p "#{@@mirror_identities_dir}"']
+			%x[#{git_user_runner} 'chmod 0750 "#{@@mirror_identities_dir}"']
+		end
+		return @@mirror_identities_dir
 	end
 
 	def self.git_exec_path
@@ -142,6 +155,9 @@ module GitHosting
 	end
 	def self.git_user_runner_path
 		return File.join(get_tmp_dir(), "run_as_git_user")
+	end
+	def self.git_exec_mirror_path
+		return File.join(get_tmp_dir(), "run_git_under_another_identity")
 	end
 
 	def self.git_exec
@@ -162,10 +178,37 @@ module GitHosting
 		end
 		return git_user_runner_path()
 	end
+	def self.git_exec_mirror
+		if !File.exists?(git_exec_mirror_path())
+			update_git_exec
+		end
+		return git_exec_mirror_path()
+	end
+
+	def self.git_mirror_identity_file(mirror)
+		identity_file_path = File.join(get_mirror_identities_dir(), mirror.to_s)
+		if !File.exists?(identity_file_path)
+			if git_user == web_user
+				File.open(identity_file_path, "w") do |f|
+					f.puts "#{mirror.private_key}"
+				end
+			else
+				file = Tempfile.new('')
+				begin
+					file.write(mirror.private_key)
+					file.close
+					%x[#{GitHosting.git_user_runner} 'sudo -nu #{web_user} cat #{file.path} | cat - >  #{identity_file_path}']
+					%x[#{git_user_runner} 'chmod 0600 #{identity_file_path}']
+				ensure
+					file.unlink
+				end
+			end
+		end
+		return identity_file_path
+	end
 
 	def self.update_git_exec
 		logger.info "Setting up #{get_tmp_dir()}"
-		git_user=Setting.plugin_redmine_git_hosting['gitUser']
 		gitolite_key=Setting.plugin_redmine_git_hosting['gitoliteIdentityFile']
 
 		File.open(gitolite_ssh_path(), "w") do |f|
@@ -231,9 +274,31 @@ module GitHosting
 			f.puts '}'
 		end
 
+		File.open(git_exec_mirror_path(), "w") do |f|
+			f.puts '#!/bin/sh'
+			f.puts "if [ \"\$(whoami)\" = \"#{git_user}\" ] ; then"
+			f.puts '  cmd=$(printf "\\"%s\\" " "$@")'
+			f.puts '  cd ~'
+			f.puts '  eval "ssh -o BatchMode=yes -o StrictHostKeyChecking=no -i ${GIT_MIRROR_IDENTITY_FILE} $cmd"'
+			f.puts "else"
+			if sudo_version < sudo_version_switch
+				f.puts '  cmd=$(printf "\\\\\\"%s\\\\\\" " "$@")'
+				f.puts "  sudo -u #{git_user} -i eval \"ssh -o BatchMode=yes -o StrictHostKeyChecking=no -i ${GIT_MIRROR_IDENTITY_FILE} $cmd\""
+			else
+				f.puts '  cmd=$(printf "\\"%s\\" " "$@")'
+				f.puts "  sudo -u #{git_user} -i eval \"ssh -o BatchMode=yes -o StrictHostKeyChecking=no -i ${GIT_MIRROR_IDENTITY_FILE} $cmd\""
+			end
+			f.puts 'fi'
+		end
+
 		File.chmod(0550, git_exec_path())
 		File.chmod(0550, gitolite_ssh_path())
 		File.chmod(0550, git_user_runner_path())
+		File.chmod(0550, git_exec_mirror_path())
+
+		RepositoryMirror.find(:all, :order => 'active DESC, created_at ASC', :conditions => "active=1").each {|mirror|
+			git_mirror_identity_file(mirror)
+		}
 	end
 
 	def self.clone_or_pull_gitolite_admin
@@ -245,7 +310,7 @@ module GitHosting
 			%x[env GIT_SSH=#{gitolite_ssh()} git --git-dir='#{local_dir}/gitolite-admin/.git' --work-tree='#{local_dir}/gitolite-admin' merge FETCH_HEAD]
 		else
 			logger.info "Cloning gitolite-admin repository"
-			%x[env GIT_SSH=#{gitolite_ssh()} git clone #{Setting.plugin_redmine_git_hosting['gitUser']}@#{Setting.plugin_redmine_git_hosting['gitServer']}:gitolite-admin.git #{local_dir}/gitolite-admin]
+			%x[env GIT_SSH=#{gitolite_ssh()} git clone #{git_user}@#{Setting.plugin_redmine_git_hosting['gitServer']}:gitolite-admin.git #{local_dir}/gitolite-admin]
 		end
 		%x[chmod 700 "#{local_dir}/gitolite-admin" ]
 		# Make sure we have out hooks setup
