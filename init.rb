@@ -59,7 +59,7 @@ end
 # initialize association from user -> public keys
 User.send(:has_many, :gitolite_public_keys, :dependent => :destroy)
 # initialize association from repository -> git hook keys
-Repository.send(:has_one, :hook_key, :class_name => 'GitHookKey', :dependent => :destroy) # remove in next release?
+Repository.send(:has_one, :hook_key, :class_name => 'GitHookKey', :dependent => :destroy)
 Repository.send(:has_one, :extra, :class_name => 'GitRepositoryExtra', :dependent => :destroy)
 # initialize association from project -> repository mirrors
 Project.send(:has_many, :repository_mirrors, :dependent => :destroy)
