@@ -12,7 +12,7 @@ class CreateGitRepositoryExtras < ActiveRecord::Migration
 			# from Hooks Keys table
 			t.column :key, :binary
 			t.column :ivector, :binary
-			
+
 		end
 
 		Project.find(:all).each {|project|
@@ -30,12 +30,9 @@ class CreateGitRepositoryExtras < ActiveRecord::Migration
 		if self.table_exists?("git_hook_keys")
 			drop_table :git_hook_keys
 		end
-		if column_exists?(:repositories, :git_daemon)
-			remove_column :repositories, :git_daemon
-		end
-		if column_exists?(:repositories, :git_http)
-			remove_column :repositories, :git_http
-		end
+
+		remove_column :repositories, :git_daemon if self.column_exists?(:repositories, :git_daemon)
+		remove_column :repositories, :git_http if self.column_exists?(:repositories, :git_http)
 
 	end
 
@@ -45,5 +42,15 @@ class CreateGitRepositoryExtras < ActiveRecord::Migration
 
 	def self.table_exists?(name)
 		ActiveRecord::Base.connection.tables.include?(name)
+	end
+
+	def self.column_exists?(table_name, column_name, type = nil, options = {})
+		columns(table_name).any?{ |c|
+				c.name == column_name.to_s &&
+					(!type                 || c.type == type) &&
+					(!options[:limit]      || c.limit == options[:limit]) &&
+					(!options[:precision]  || c.precision == options[:precision]) &&
+					(!options[:scale]      || c.scale == options[:scale])
+		}
 	end
 end
