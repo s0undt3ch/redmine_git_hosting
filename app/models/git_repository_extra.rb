@@ -7,7 +7,7 @@ class GitRepositoryExtra < ActiveRecord::Base
 
 	belongs_to :repository, :class_name => 'Repository', :foreign_key => 'repository_id'
 
-	#validates_presence_of :repository_id, :key, :ivector, :git_http, :git_daemon
+	validates_presence_of :repository_id, :key, :ivector, :git_http, :git_daemon
 	validates_associated :repository
 
 
