@@ -22,7 +22,12 @@ module GitHosting
 				# This needs to be done here because after some tries of adding,
 				# at runtime, accepts_nested_attributes_for, they all failed, and
 				# seemed too hacky.
-				@project.repository.extra.update_attributes(params[:extra]) if !@project.repository.nil?
+				GitHosting.logger.debug "P #{params[:repository_extra]}"
+				if !@project.repository.nil?
+					@project.repository.extra.update_attributes(params[:repository_extra])
+					@project.repository.extra.save!
+					@project.repository.extra(true)  # Reload association
+				end
 
 				edit_without_scm_settings
 				GitHosting.logger.debug "On edit_with_scm_settings after edit_without_scm_settings"
