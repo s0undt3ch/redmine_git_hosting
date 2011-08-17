@@ -18,6 +18,10 @@ module GitHosting
 					params[:repository][:url] = File.join(Setting.plugin_redmine_git_hosting['gitRepositoryBasePath'], "#{repo_name}.git")
 				end
 
+				# Update the git_repositories_extras table
+				# This needs to be done here because after some tries of adding,
+				# at runtime, accepts_nested_attributes_for, they all failed, and
+				# seemed too hacky.
 				if !@project.repository.nil?
 					@project.repository.extra.update_attributes(params[:repository_extra])
 					@project.repository.extra.save!
