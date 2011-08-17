@@ -18,11 +18,6 @@ module GitHosting
 					params[:repository][:url] = File.join(Setting.plugin_redmine_git_hosting['gitRepositoryBasePath'], "#{repo_name}.git")
 				end
 
-				# Update the git_repositories_extras table
-				# This needs to be done here because after some tries of adding,
-				# at runtime, accepts_nested_attributes_for, they all failed, and
-				# seemed too hacky.
-				GitHosting.logger.debug "P #{params[:repository_extra]}"
 				if !@project.repository.nil?
 					@project.repository.extra.update_attributes(params[:repository_extra])
 					@project.repository.extra.save!
@@ -30,11 +25,12 @@ module GitHosting
 				end
 
 				edit_without_scm_settings
-				GitHosting.logger.debug "On edit_with_scm_settings after edit_without_scm_settings"
 
-				GitHosting::update_repositories(@project, false) if !@project.repository.nil?
-				# Make sure the repository has updated hook settings
-				GitHosting::Hooks::GitAdapterHooks.setup_hooks(@project) if !@project.repository.nil?
+				if !@project.repository.nil?
+					GitHosting::update_repositories(@project, false) if !@project.repository.nil?
+					# Make sure the repository has updated hook settings
+					GitHosting::Hooks::GitAdapterHooks.setup_hooks(@project) if !@project.repository.nil?
+				end
 
 			end
 

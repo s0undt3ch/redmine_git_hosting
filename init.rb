@@ -4,6 +4,7 @@ require_dependency 'user'
 
 require File.join(File.dirname(__FILE__), 'app', 'models', 'git_hook_key')
 require File.join(File.dirname(__FILE__), 'app', 'models', 'git_repository_extra')
+require File.join(File.dirname(__FILE__), 'app', 'models', 'git_cia_notification')
 require_dependency 'git_hosting'
 require_dependency 'git_hosting/hooks/git_adapter_hooks'
 require_dependency 'git_hosting/patches/projects_controller_patch'
@@ -13,6 +14,7 @@ require_dependency 'git_hosting/patches/repositories_helper_patch'
 require_dependency 'git_hosting/patches/repository_patch'
 require_dependency 'git_hosting/patches/git_adapter_patch'
 require_dependency 'git_hosting/patches/git_hosting_settings_patch'
+require_dependency 'git_hosting/patches/repository_cia_filters'
 
 Redmine::Plugin.register :redmine_git_hosting do
 	name 'Redmine Git Hosting Plugin'
@@ -60,8 +62,10 @@ end
 User.send(:has_many, :gitolite_public_keys, :dependent => :destroy)
 # initialize association from repository -> git hook keys
 Repository.send(:has_one, :hook_key, :class_name => 'GitHookKey', :dependent => :destroy)
+# initialize association from repository -> git repositories extra
 Repository.send(:has_one, :extra, :foreign_key =>'repository_id', :class_name => 'GitRepositoryExtra', :dependent => :destroy)
-Repository.send(:accepts_nested_attributes_for, :extra, :allow_destroy =>true)  
+# initialize association from repository -> git cia notifications
+Repository.send(:has_many, :cia_notifications, :foreign_key =>'repository_id', :class_name => 'GitCiaNotification', :dependent => :destroy, :extend => GitHosting::Patches::RepositoryCiaFilters::FilterMethods)
 # initialize association from project -> repository mirrors
 Project.send(:has_many, :repository_mirrors, :dependent => :destroy)
 
