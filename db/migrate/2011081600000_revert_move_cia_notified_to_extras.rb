@@ -6,7 +6,7 @@ class RevertMoveCiaNotifiedToExtras < ActiveRecord::Migration
 		Project.find(:all).each {|project|
 			if project.repository.is_a?(Repository::Git)
 				project.repository.changesets.each { |revision|
-					if project.repository.extra.notified_cia.include? revision.scmid
+					if !project.repository.extra.notified_cia.nil? && project.repository.extra.notified_cia.include?(revision.scmid)
 						revision.notified_cia = 1
 					else
 						revision.notified_cia = 0
