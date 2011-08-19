@@ -60,8 +60,6 @@ end
 
 # initialize association from user -> public keys
 User.send(:has_many, :gitolite_public_keys, :dependent => :destroy)
-# initialize association from repository -> git hook keys
-Repository.send(:has_one, :hook_key, :class_name => 'GitHookKey', :dependent => :destroy)
 # initialize association from repository -> git repositories extra
 Repository.send(:has_one, :extra, :foreign_key =>'repository_id', :class_name => 'GitRepositoryExtra', :dependent => :destroy)
 # initialize association from repository -> git cia notifications
