@@ -414,8 +414,8 @@ module GitHosting
 
 				repo_name = repository_name(project)
 
-				#check for delete -- if delete we can just
-				#delete repo, and ignore updating users/public keys
+				# check for delete -- if delete we can just
+				# delete repo, and ignore updating users/public keys
 				if is_repo_delete
 					if Setting.plugin_redmine_git_hosting['deleteGitRepositories'] == "true"
 						conf.delete_repo(repo_name)
@@ -428,9 +428,9 @@ module GitHosting
 						new_repos.push repo_name
 						new_projects.push project
 
-						# Make sure the repository has a git_hook key instance
-						if project.repository.hook_key.nil?
-							project.repository.hook_key = GitHookKey.new
+						# Make sure the repository has a GitRepositoryExtra instance
+						if project.repository.extra.nil?
+							project.repository.extra = GitRepositoryExtra.new
 						end
 					end
 
